@@ -503,6 +503,11 @@ AC_CHECK_TYPES([struct statfs64], [
 #include <asm/statfs.h>])
 
 AC_CHECK_TYPES(m4_normalize([
+	struct kbdiacruc,
+	struct kbdiacrsuc
+]),,, [#include <linux/kd.h>])
+
+AC_CHECK_TYPES(m4_normalize([
 	struct kvm_cpuid2,
 	struct kvm_regs,
 	struct kvm_sregs,
