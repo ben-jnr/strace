@@ -11,8 +11,9 @@
 
 #include <inttypes.h>
 #include <math.h>
-#include <stdio.h>
+#include <stdarg.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
@@ -264,6 +265,23 @@ clock_t_str(uint64_t val, char *str, size_t str_size)
 	return str;
 }
 
+static char *
+fmt_str(const char *fmt, ...)
+{
+	char *str;
+	int ret;
+
+	va_list args;
+	va_start(args, fmt);
+	ret = vasprintf(&str, fmt, args);
+	va_end(args);
+
+	if (ret < 0)
+		perror_msg_and_fail("vasprintf(\"%s\")", fmt);
+
+	return str;
+}
+
 int
 main(void)
 {
@@ -376,7 +394,7 @@ main(void)
 		{ 0, "IFLA_BR_UNSPEC" },
 		{ 21, "IFLA_BR_FDB_FLUSH" },
 		{ 40, "IFLA_BR_PAD" },
-		{ 47, "0x2f /* IFLA_BR_??? */" },
+		{ 48, "0x30 /* IFLA_BR_??? */" },
 	};
 
 	for (size_t k = 0; k < ARRAY_SIZE(und_br_attrs); k++) {
@@ -579,6 +597,104 @@ main(void)
 				     { 7, boolopts[k].crop_str },
 				     { 9, boolopts[k].str },
 				     { 9, boolopts[k].str });
+	}
+
+#define QSTATE_NLA(type_, type_str_, field_, crop_str_, str_, ...)	\
+	{ { .nla = { .nla_len = NLA_HDRLEN				\
+				+ sizeof(qstate_attrs[0].val.payload.field_), \
+		     .nla_type = type_ },				\
+	    .payload = { .field_ = __VA_ARGS__ } },			\
+	  .sz = NLA_HDRLEN + sizeof(qstate_attrs[0].val.payload.field_), \
+	  .type_str = type_str_, .crop_str = crop_str_, .str = str_ }
+
+	char ip_timer_crop[64];
+	char ip_timer[64];
+	char ipv6_timer_crop[64];
+	char ipv6_timer[64];
+	struct {
+		struct {
+			struct nlattr nla;
+			union {
+				uint8_t  chr;
+				uint8_t  ipv4[4];
+				uint8_t  ipv6[16];
+				uint32_t ifindex;
+				uint32_t clk;
+			} payload;
+		} val;
+		size_t sz;
+		const char *type_str;
+		const char *crop_str;
+		const char *str;
+	} qstate_attrs[] = {
+		QSTATE_NLA(BRIDGE_QUERIER_UNSPEC, "BRIDGE_QUERIER_UNSPEC", ipv4,
+			   "\"\\xde\\xad\\xfa\"",
+			   "\"\\xde\\xad\\xfa\\xce\"",
+			   { 0xde, 0xad, 0xfa, 0xce } ),
+		QSTATE_NLA(BRIDGE_QUERIER_IP_ADDRESS,
+			   "BRIDGE_QUERIER_IP_ADDRESS", ipv4,
+			   "\"\\x5d\\xb8\\xd8\"",
+			   "inet_addr(\"93.184.216.34\")",
+			   { 0x5d, 0xb8, 0xd8, 0x22 } ),
+		QSTATE_NLA(BRIDGE_QUERIER_IP_PORT,
+			   "BRIDGE_QUERIER_IP_PORT", ifindex,
+			   fmt_str("\"\\x%02x\\x%02x\\x%02x\"",
+				   (ifindex_lo() >> BE_LE(24, 0)) & 0xff,
+				   (ifindex_lo() >> BE_LE(16, 8)) & 0xff,
+				   (ifindex_lo() >> BE_LE(8, 16)) & 0xff),
+			   IFINDEX_LO_STR,
+			   ifindex_lo() ),
+		QSTATE_NLA(BRIDGE_QUERIER_IP_OTHER_TIMER,
+			   "BRIDGE_QUERIER_IP_OTHER_TIMER", clk,
+			   clock_t_str(BE_LE(0xcafefe, 0xfefeed),
+				       ARRSZ_PAIR(ip_timer_crop)),
+			   clock_t_str(0xcafefeed, ARRSZ_PAIR(ip_timer)),
+			   0xcafefeed ),
+		QSTATE_NLA(BRIDGE_QUERIER_PAD, "BRIDGE_QUERIER_PAD", ipv4,
+			   "\"\\xfa\\xce\\xfe\"",
+			   "\"\\xfa\\xce\\xfe\\xed\"",
+			   { 0xfa, 0xce, 0xfe, 0xed } ),
+		QSTATE_NLA(BRIDGE_QUERIER_IPV6_ADDRESS,
+			   "BRIDGE_QUERIER_IPV6_ADDRESS", ipv6,
+			   "\"\\xde\\xad\\xfa\\xce\\x80\\x00\\x00\\x00"
+			     "\\x00\\x00\\x00\\xad\\x00\\x00\\x00\"",
+			   "inet_pton(AF_INET6, \"dead:face:8000::ad:0:ec\")",
+			   { 0xde, 0xad, 0xfa, 0xce, 0x80, 0x00, 0x00, 0x00,
+			     0x00, 0x00, 0x00, 0xad, 0x00, 0x00, 0x00, 0xec } ),
+		QSTATE_NLA(BRIDGE_QUERIER_IPV6_PORT,
+			   "BRIDGE_QUERIER_IPV6_PORT", ifindex,
+			   BE_LE("\"\\xbb\\x40\\xe6\"", "\"\\x4d\\xe6\\x40\""),
+			   "3141592653",
+			   3141592653 ),
+		QSTATE_NLA(BRIDGE_QUERIER_IPV6_OTHER_TIMER,
+			   "BRIDGE_QUERIER_IPV6_OTHER_TIMER", clk,
+			   clock_t_str(BE_LE(0xfacebe, 0xcebeef),
+				       ARRSZ_PAIR(ipv6_timer_crop)),
+			   clock_t_str(0xfacebeef, ARRSZ_PAIR(ipv6_timer)),
+			   0xfacebeef ),
+		QSTATE_NLA(8, "0x8 /* BRIDGE_QUERIER_??? */", chr,
+			   "", "\"\\x69\"", 0x69 ),
+	};
+	for (size_t k = 0; k < ARRAY_SIZE(qstate_attrs); k++) {
+		char crop_str[256];
+		char str[256];
+
+		snprintf(crop_str, sizeof(crop_str),
+			 "%s{nla_len=%zu, nla_type=%s}%s%s%s",
+			 qstate_attrs[k].crop_str[0] ? "[" : "",
+			 qstate_attrs[k].sz, qstate_attrs[k].type_str,
+			 qstate_attrs[k].crop_str[0] ? ", " : "",
+			 qstate_attrs[k].crop_str,
+			 qstate_attrs[k].crop_str[0] ? "]" : "");
+		snprintf(str, sizeof(str), "[{nla_len=%zu, nla_type=%s}, %s]",
+			 qstate_attrs[k].sz, qstate_attrs[k].type_str,
+			 qstate_attrs[k].str);
+		TEST_NESTED_LINKINFO(fd, nlh0, 2, "IFLA_INFO_DATA", "bridge",
+				     IFLA_BR_MCAST_QUERIER_STATE,
+				     "IFLA_BR_MCAST_QUERIER_STATE",
+				     qstate_attrs[k].val, pattern,
+				     { qstate_attrs[k].sz - 1, crop_str },
+				     { qstate_attrs[k].sz,     str });
 	}
 
 	/* tun attrs */
