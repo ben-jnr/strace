@@ -31,6 +31,8 @@
 #include "xlat/rtnl_ifla_bridge_flags.h"
 #include "xlat/rtnl_ifla_bridge_modes.h"
 #include "xlat/rtnl_ifla_brport_attrs.h"
+#include "xlat/rtnl_ifla_br_boolopts.h"
+#include "xlat/rtnl_ifla_br_boolopt_flags.h"
 #include "xlat/rtnl_ifla_events.h"
 #include "xlat/rtnl_ifla_info_attrs.h"
 #include "xlat/rtnl_ifla_info_data_bridge_attrs.h"
@@ -469,6 +471,31 @@ decode_nla_linkinfo_xstats(struct tcb *const tcp,
 	return false;
 }
 
+static bool
+decode_ifla_br_boolopt(struct tcb *const tcp,
+		       const kernel_ulong_t addr,
+		       const unsigned int len,
+		       const void *const opaque_data)
+{
+	struct br_boolopt_multi bom;
+
+	if (len < sizeof(bom))
+		return false;
+
+	if (umoven_or_printaddr(tcp, addr, sizeof(bom), &bom))
+		return true;
+
+	tprint_struct_begin();
+	PRINT_FIELD_FLAGS(bom, optval, rtnl_ifla_br_boolopt_flags,
+			  "1<<BR_BOOLOPT_???");
+	tprint_struct_next();
+	PRINT_FIELD_FLAGS(bom, optmask, rtnl_ifla_br_boolopt_flags,
+			  "1<<BR_BOOLOPT_???");
+	tprint_struct_end();
+
+	return true;
+}
+
 static const nla_decoder_t ifla_info_data_bridge_nla_decoders[] = {
 	[IFLA_BR_UNSPEC]			= NULL,
 	[IFLA_BR_FORWARD_DELAY]			= decode_nla_clock_t,
@@ -516,6 +543,7 @@ static const nla_decoder_t ifla_info_data_bridge_nla_decoders[] = {
 	[IFLA_BR_MCAST_IGMP_VERSION]		= decode_nla_u8,
 	[IFLA_BR_MCAST_MLD_VERSION]		= decode_nla_u8,
 	[IFLA_BR_VLAN_STATS_PER_PORT]		= decode_nla_u8,
+	[IFLA_BR_MULTI_BOOLOPT]			= decode_ifla_br_boolopt,
 };
 
 static bool
