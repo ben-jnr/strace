@@ -1,0 +1,6 @@
+#value_indexed
+#enum
+#include <netinet/in.h>
+#include <linux/if_link.h>
+IFLA_VF_INFO_UNSPEC	0
+IFLA_VF_INFO		1

@@ -1,0 +1,7 @@
+#value_indexed
+#enum
+#include <netinet/in.h>
+#include <linux/if_link.h>
+IFLA_VF_LINK_STATE_AUTO		0
+IFLA_VF_LINK_STATE_ENABLE	1
+IFLA_VF_LINK_STATE_DISABLE	2
