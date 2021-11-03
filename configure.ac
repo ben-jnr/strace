@@ -433,6 +433,7 @@ AC_CHECK_HEADERS(m4_normalize([
 	linux/mpls.h
 	linux/mroute.h
 	linux/mroute6.h
+	linux/nfc.h
 	linux/qrtr.h
 	mqueue.h
 	netinet/sctp.h
