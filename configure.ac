@@ -424,6 +424,7 @@ AC_CHECK_HEADERS(m4_normalize([
 	elf.h
 	gcov.h
 	iconv.h
+	linux/if_alg.h
 	linux/if_bonding.h
 	linux/if_bridge.h
 	linux/if_xdp.h
@@ -537,6 +538,11 @@ AC_CHECK_TYPES(m4_normalize([
 	struct bridge_vlan_xstats
 ]),,, [#include <netinet/in.h>
 #include <linux/if_bridge.h>])
+
+AC_CHECK_TYPES(m4_normalize([
+	struct sockaddr_alg_new
+]),,, [#include <netinet/in.h>
+#include <linux/if_alg.h>])
 
 AC_CHECK_TYPES(m4_normalize([
 	struct sockaddr_xdp
